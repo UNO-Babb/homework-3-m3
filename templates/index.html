@@ -3,59 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hexagon Tile Game</title>
-    <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-        }
-        #board {
-            display: grid;
-            grid-template-columns: repeat(10, 60px);
-            grid-template-rows: repeat(10, 52px);
-            gap: 2px;
-        }
-        .hex {
-            width: 60px;
-            height: 52px;
-            background-color: lightgray;
-            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-            transition: background-color 0.2s;
-        }
-    </style>
+    <title>Hex Tile Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
+    <div class="game-container">
+        <h1>Hex Tile Game</h1>
+        <div id="board" class="board"></div>
+        <div id="message"></div>
+    </div>
 
-<div id="board">
-    <!-- Hexagonal tiles will be added here on clicks -->
-</div>
+    <script>
+        $(document).ready(function() {
+            // Initial render of the board
+            function renderBoard() {
+                $.get('/get_board', function(data) {
+                    const board = data.board;
+                    const currentPlayer = data.current_player;
+                    let boardHtml = '';
+                    const hexSize = 50; // Size of each hexagon tile
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    $(document).ready(function() {
-        // Create an empty board of hex tiles
-        for (let i = 0; i < 100; i++) {
-            const hexTile = $('<div class="hex"></div>');
-            hexTile.data("clicked", false);  // Track if a tile has been clicked
-            $('#board').append(hexTile);
-        }
+                    // Generate board tiles dynamically
+                    for (const [coord, color] of Object.entries(board)) {
+                        const [x, y] = coord.split(',').map(Number);
+                        const tileClass = color;
+                        const transform = `translate(${x * (hexSize * 1.5)}px, ${y * (hexSize * Math.sqrt(3) / 2)}px)`;
 
-        // Add color to hex tiles on click
-        $('#board').on('click', '.hex', function() {
-            if (!$(this).data("clicked")) {  // Only allow one click per tile
-                $.getJSON('/add_tile', function(data) {
-                    $(this).css('background-color', data.color);
-                    $(this).data("clicked", true);  // Mark as clicked
-                }.bind(this));
+                        boardHtml += `<div class="tile ${tileClass}" style="transform: ${transform}" data-x="${x}" data-y="${y}"></div>`;
+                    }
+
+                    // Display the message for the current player's turn
+                    const player = currentPlayer === 1 ? 'Red' : 'Blue';
+                    $('#message').text(`Player ${player}'s turn`);
+
+                    $('#board').html(boardHtml);
+                });
             }
-        });
-    });
-</script>
 
+            // Handle tile click
+            $(document).on('click', '.tile', function() {
+                const x = $(this).data('x');
+                const y = $(this).data('y');
+
+                $.ajax({
+                    url: '/make_move',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ x: x, y: y }),
+                    success: function(response) {
+                        if (response.success) {
+                            renderBoard();
+                        } else {
+                            alert(response.message);
+                        }
+                    }
+                });
+            });
+
+            // Initial load
+            renderBoard();
+        });
+    </script>
 </body>
 </html>
